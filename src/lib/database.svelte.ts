@@ -1,6 +1,8 @@
 import { openDB, type DBSchema } from "idb";
 
 export namespace Schema {
+    export type DocumentListPK = DB['documentList']['key'];
+
     export interface DocumentList {
         title: string,
     }
@@ -16,7 +18,7 @@ export namespace Schema {
             value: DocumentList;
         };
         'documentContent': {
-            key: number;
+            key: DocumentListPK;
             value: DocumentContent;
         };
     }
@@ -45,8 +47,17 @@ export async function addDocument(title: string, content: string) {
     await tx.done;
 }
 
-console.log(addDocument);
-
 export async function getDocumentList() {
-    return await DB.getAll("documentList");
+    let tx = DB.transaction("documentList");
+    let c = await tx.objectStore("documentList").openCursor();
+    let result = new Map<Schema.DocumentListPK, Schema.DocumentList>();
+    while (c) {
+        result.set(c.key, c.value);
+        c = await c.continue();
+    }
+    return result;
+}
+
+export async function getDocument(key: Schema.DocumentListPK) {
+    return await DB.get("documentContent", key) ?? null;
 }

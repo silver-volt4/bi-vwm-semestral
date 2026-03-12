@@ -1,37 +1,17 @@
 <script lang="ts">
-    import type { SvelteComponent } from "svelte";
-    import AllDocuments from "./components/AllDocuments.svelte";
-    import { addDocument } from "./lib/database.svelte";
-    import { fileSelectDialog } from "./lib/files";
+    import type { Schema } from "./lib/database.svelte";
+    import FileListing from "./lib/screens/FileListing.svelte";
+    import Read from "./lib/screens/Read.svelte";
 
-    let documentListing:
-        | undefined
-        | SvelteComponent<
-              Record<string, never>,
-              { refresh: () => Promise<void> }
-          > = $state();
-
-    async function addFiles() {
-        let files = await fileSelectDialog();
-        await Promise.all(
-            files.map(async (file) => {
-                let title = file.name;
-                let content = await file.text();
-                await addDocument(title, content);
-            }),
-        );
-        documentListing?.refresh();
-    }
+    let selectedFileId: Schema.DocumentListPK | null = $state(null);
 </script>
 
-<main class="flex flex-col items-center my-5 px-4">
-    <div class="w-full max-w-300 flex flex-col grow">
-        <div class="my-5 text-center">
-            <h1 class="text-4xl text-yellow-600 font-bold">
-                List of documents
-            </h1>
-            <button onclick={addFiles}>Add files...</button>
-        </div>
-        <AllDocuments bind:this={documentListing} />
-    </div>
-</main>
+{#if selectedFileId === null}
+    <FileListing
+        selectFile={(fileId) => {
+            selectedFileId = fileId;
+        }}
+    />
+{:else}
+    <Read fileId={selectedFileId}></Read>
+{/if}
