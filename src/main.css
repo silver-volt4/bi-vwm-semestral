@@ -1,15 +1,5 @@
 @import "tailwindcss";
 
-@layer base {
-    h1 {
-        @apply text-2xl font-bold
-    }
-
-    h2 {
-        @apply text-xl font-bold
-    }
-
-    input {
-        @apply border-2
-    }
+body {
+    @apply bg-yellow-100
 }

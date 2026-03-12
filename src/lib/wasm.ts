@@ -1,5 +1,5 @@
 import loadWasm, { initialize } from "./wasm/src_wasm";
-export { stem } from "./wasm/src_wasm";
+export { stem, stopwords } from "./wasm/src_wasm";
 
 async function init() {
     await loadWasm();
