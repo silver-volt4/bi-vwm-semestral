@@ -106,7 +106,7 @@ export async function getWeightsOfTerm(term: string) {
     return await DB.getAllFromIndex('searchIndex', 'indexTerm', term);
 }
 
-export async function searchInIndex(termsAndWeights: { [key: string]: Schema.SearchIndex }) {
+export async function searchInIndex(termsAndWeights: { [key: string]: Schema.SearchIndex }, exclude: Schema.DocumentListPK[] = [], nResults: number = 5) {
     let terms: {
         [key: string]: {
             position: number,
@@ -132,13 +132,16 @@ export async function searchInIndex(termsAndWeights: { [key: string]: Schema.Sea
 
     let done = false;
 
-    let topFive: [number, number][] = [];
+    let bestN: [number, number][] = [];
 
     let todo = Object.keys(terms).length;
 
     while (todo > 0) {
         console.log(todo);
         console.log("Iterating document ID ", documentId);
+
+        if (documentId in exclude) continue;
+
         let cosSimUp = 0;
         let cosSimLeft = 0;
         let cosSimRight = 0;
@@ -147,6 +150,8 @@ export async function searchInIndex(termsAndWeights: { [key: string]: Schema.Sea
         for (let key in terms) {
             let d = terms[key];
 
+            cosSimRight += Math.pow(termsAndWeights[key].weight, 2);
+
             if (d.position >= d.data.length) continue;
             let indexData = d.data[d.position];
 
@@ -154,24 +159,24 @@ export async function searchInIndex(termsAndWeights: { [key: string]: Schema.Sea
                 d.position++;
                 cosSimUp += indexData.weight * termsAndWeights[key].weight;
                 cosSimLeft += Math.pow(indexData.weight, 2);
-                cosSimRight += Math.pow(termsAndWeights[key].weight, 2);
                 if (d.position >= d.data.length) {
                     todo--;
                 }
             }
         }
 
+
         let cosSim = cosSimUp / Math.sqrt(cosSimLeft * cosSimRight);
 
         console.log("document ", documentId, " has similarity ", cosSim);
 
-        if (topFive.length < 5) {
-            topFive.push([documentId, cosSim]);
+        if (bestN.length < nResults) {
+            bestN.push([documentId, cosSim]);
         } else {
             let lowest = -1;
             let lowestSimilarity = -1;
             let i = 0;
-            for (let [documentId, similarity] of topFive) {
+            for (let [documentId, similarity] of bestN) {
                 if (lowestSimilarity == -1 || lowestSimilarity > similarity) {
                     lowestSimilarity = similarity;
                     lowest = i;
@@ -179,12 +184,12 @@ export async function searchInIndex(termsAndWeights: { [key: string]: Schema.Sea
                 i++;
             }
             if (lowestSimilarity < cosSim) {
-                topFive.splice(lowest, 1, [documentId, cosSim]);
+                bestN.splice(lowest, 1, [documentId, cosSim]);
             }
         }
 
         documentId++;
     }
 
-    return topFive;
+    return bestN;
 }

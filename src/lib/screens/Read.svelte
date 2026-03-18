@@ -14,9 +14,7 @@
         fileId: Schema.DocumentListPK;
     } = $props();
 
-    async function getBestSimilarDocuments(
-        id: number,
-    ): Promise<[Schema.DocumentList, number][]> {
+    async function getBestSimilarDocuments(id: number) {
         let weights = (await getWeightsOfDocument(id)).reduce(
             (previous, current) => {
                 previous[current.term] = current;
@@ -24,10 +22,13 @@
             },
             {},
         );
-        let best = await searchInIndex(weights);
-        return await Promise.all(
-            best.map(async (b) => [await getDocumentMeta(b[0]), b[1]]),
-        );
+        let best = await searchInIndex(weights, [id]);
+        let recommendations: [Schema.DocumentList, number][] =
+            await Promise.all(
+                best.map(async (b) => [await getDocumentMeta(b[0]), b[1]]),
+            );
+        recommendations.sort((a, b) => a[1] - b[1]);
+        return recommendations.map((k) => k[0]);
     }
 
     let fileReader = $derived(
@@ -47,13 +48,15 @@
     <div class="w-full max-w-300 flex flex-col grow md-content">
         {#await fileReader then [file, recommendations]}
             {#if file}
-                <div>
+                {@html marked.parse(file?.content)}
+                <div class="border-2">
                     <div>READ MORE:</div>
                     {#each recommendations as rec}
-                        <div>{rec[0].title} (similarity {rec[1]})</div>
+                        <button>
+                            {rec.title}
+                        </button>
                     {/each}
                 </div>
-                {@html marked.parse(file?.content)}
             {:else}
                 {@render errorDisplay(
                     "Invalid document ID (does the file exist?)",
