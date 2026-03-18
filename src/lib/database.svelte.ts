@@ -137,11 +137,6 @@ export async function searchInIndex(termsAndWeights: { [key: string]: Schema.Sea
     let todo = Object.keys(terms).length;
 
     while (todo > 0) {
-        console.log(todo);
-        console.log("Iterating document ID ", documentId);
-
-        if (documentId in exclude) continue;
-
         let cosSimUp = 0;
         let cosSimLeft = 0;
         let cosSimRight = 0;
@@ -165,10 +160,12 @@ export async function searchInIndex(termsAndWeights: { [key: string]: Schema.Sea
             }
         }
 
+        if (exclude.includes(documentId)) {
+            documentId++;
+            continue;
+        }
 
         let cosSim = cosSimUp / Math.sqrt(cosSimLeft * cosSimRight);
-
-        console.log("document ", documentId, " has similarity ", cosSim);
 
         if (bestN.length < nResults) {
             bestN.push([documentId, cosSim]);
