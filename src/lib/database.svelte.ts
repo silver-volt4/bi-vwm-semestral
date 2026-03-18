@@ -76,13 +76,15 @@ export async function getDocumentList() {
 }
 
 export async function getDocumentMeta(key: Schema.DocumentListPK) {
-    let doc = await DB.get("documentList", key) ?? null;
-    if (!doc) throw new Error();
-    return doc;
+    let d = await DB.get("documentList", key) ?? null;
+    if (!d) throw new Error();
+    return d;
 }
 
 export async function getDocument(key: Schema.DocumentListPK) {
-    return await DB.get("documentContent", key) ?? null;
+    let d = await DB.get("documentContent", key) ?? null;
+    if (!d) throw new Error();
+    return d;
 }
 
 export async function clearIndex() {
@@ -186,7 +188,9 @@ export async function searchInIndex(termsAndWeights: { [key: string]: Schema.Sea
         }
 
         documentId++;
+
     }
 
-    return bestN;
+    bestN.sort((a, b) => a[1] - b[1]);
+    return bestN.map(k => k[0]);
 }

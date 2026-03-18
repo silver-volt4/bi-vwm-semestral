@@ -10,30 +10,40 @@
 
     let {
         fileId,
+        selectFile,
     }: {
         fileId: Schema.DocumentListPK;
+        selectFile: (id: Schema.DocumentListPK) => any;
     } = $props();
 
     async function getBestSimilarDocuments(id: number) {
         let weights = (await getWeightsOfDocument(id)).reduce(
             (previous, current) => {
+                // @ts-ignore
                 previous[current.term] = current;
                 return previous;
             },
             {},
         );
         let best = await searchInIndex(weights, [id]);
-        let recommendations: [Schema.DocumentList, number][] =
-            await Promise.all(
-                best.map(async (b) => [await getDocumentMeta(b[0]), b[1]]),
-            );
-        recommendations.sort((a, b) => a[1] - b[1]);
-        return recommendations.map((k) => k[0]);
+        let result = new Map<number, Schema.DocumentList>();
+        for (let id of best) {
+            result.set(id, await getDocumentMeta(id));
+        }
+
+        return result;
     }
 
-    let fileReader = $derived(
-        Promise.all([getDocument(fileId), getBestSimilarDocuments(fileId)]),
-    );
+    let fileReader: null | Promise<
+        [Schema.DocumentContent, Map<number, Schema.DocumentList>]
+    > = $state(null);
+
+    $effect(() => {
+        fileReader = Promise.all([
+            getDocument(fileId),
+            getBestSimilarDocuments(fileId),
+        ]);
+    });
 
     let showWeights = $state(false);
 </script>
@@ -46,25 +56,38 @@
     class="flex flex-col items-center py-5 px-4 w-screen min-h-screen bg-neutral-100"
 >
     <div class="w-full max-w-300 flex flex-col grow md-content">
-        {#await fileReader then [file, recommendations]}
-            {#if file}
-                {@html marked.parse(file?.content)}
-                <div class="border-2">
-                    <div>READ MORE:</div>
-                    {#each recommendations as rec}
-                        <button>
-                            {rec.title}
-                        </button>
-                    {/each}
-                </div>
-            {:else}
-                {@render errorDisplay(
-                    "Invalid document ID (does the file exist?)",
-                )}
-            {/if}
-        {:catch e}
-            {@render errorDisplay(String(e).toString())}
-        {/await}
+        {#if fileReader}
+            {#await fileReader}
+                <div class="self-center">Loading...</div>
+            {:then [file, recommendations]}
+                {#if file}
+                    {@html marked.parse(file?.content)}
+                    <div
+                        class="bg-neutral-200 p-4 rounded-md flex flex-col gap-2 sticky bottom-4"
+                    >
+                        <div class="font-bold text-2xl">
+                            Don't miss out on these articles!
+                        </div>
+                        <div class="flex flex-wrap gap-2">
+                            {#each recommendations as [id, rec]}
+                                <button
+                                    class="p-2 bg-neutral-800 text-white rounded-md"
+                                    onclick={() => selectFile(id)}
+                                >
+                                    {rec.title}
+                                </button>
+                            {/each}
+                        </div>
+                    </div>
+                {:else}
+                    {@render errorDisplay(
+                        "Invalid document ID (does the file exist?)",
+                    )}
+                {/if}
+            {:catch e}
+                {@render errorDisplay(String(e).toString())}
+            {/await}
+        {/if}
     </div>
 </div>
 

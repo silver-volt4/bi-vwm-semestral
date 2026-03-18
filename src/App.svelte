@@ -1,5 +1,5 @@
 <script lang="ts">
-    import { getWeightsOfDocument, getWeightsOfTerm, searchInIndex, type Schema } from "./lib/database.svelte";
+    import { type Schema } from "./lib/database.svelte";
     import FileListing from "./lib/screens/FileListing.svelte";
     import Read from "./lib/screens/Read.svelte";
 
@@ -14,6 +14,11 @@
             }}
         />
     {:else}
-        <Read fileId={selectedFileId}></Read>
+        <Read
+            fileId={selectedFileId}
+            selectFile={(fileId) => {
+                selectedFileId = fileId;
+            }}
+        ></Read>
     {/if}
 </div>

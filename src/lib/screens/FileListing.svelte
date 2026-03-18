@@ -59,7 +59,10 @@
             <button onclick={rebuildCache}>Index build</button>
         </div>
 
-        <div class="flex flex-col gap-2">
+        <div
+            class="grid gap-2"
+            style="grid-template-columns: repeat(auto-fit, minmax(250px, 1fr))"
+        >
             {#if getListPromise}
                 {#await getListPromise then data}
                     {#each data as row}
