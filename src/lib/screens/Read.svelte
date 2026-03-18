@@ -7,6 +7,7 @@
         searchInIndex,
         type Schema,
     } from "../database.svelte";
+    import { scale } from "svelte/transition";
 
     let {
         fileId,
@@ -38,14 +39,8 @@
         [Schema.DocumentContent, Map<number, Schema.DocumentList>]
     > = $state(null);
 
-    $effect(() => {
-        fileReader = Promise.all([
-            getDocument(fileId),
-            getBestSimilarDocuments(fileId),
-        ]);
-    });
-
-    let showWeights = $state(false);
+    let documentContent = $derived(getDocument(fileId));
+    let recommendationsLoader = $derived(getBestSimilarDocuments(fileId));
 </script>
 
 {#snippet errorDisplay(what: string)}
@@ -56,38 +51,39 @@
     class="flex flex-col items-center py-5 px-4 w-screen min-h-screen bg-neutral-100"
 >
     <div class="w-full max-w-300 flex flex-col grow md-content">
-        {#if fileReader}
-            {#await fileReader}
-                <div class="self-center">Loading...</div>
-            {:then [file, recommendations]}
-                {#if file}
-                    {@html marked.parse(file?.content)}
-                    <div
-                        class="bg-neutral-200 p-4 rounded-md flex flex-col gap-2 sticky bottom-4"
-                    >
-                        <div class="font-bold text-2xl">
-                            Don't miss out on these articles!
-                        </div>
-                        <div class="flex flex-wrap gap-2">
-                            {#each recommendations as [id, rec]}
-                                <button
-                                    class="p-2 bg-neutral-800 text-white rounded-md"
-                                    onclick={() => selectFile(id)}
-                                >
-                                    {rec.title}
-                                </button>
-                            {/each}
-                        </div>
-                    </div>
-                {:else}
-                    {@render errorDisplay(
-                        "Invalid document ID (does the file exist?)",
-                    )}
-                {/if}
-            {:catch e}
-                {@render errorDisplay(String(e).toString())}
-            {/await}
-        {/if}
+        {#await documentContent}
+            <div class="self-center">Loading...</div>
+        {:then file}
+            {#if file}
+                {@html marked.parse(file?.content)}
+            {:else}
+                {@render errorDisplay(
+                    "Invalid document ID (does the file exist?)",
+                )}
+            {/if}
+        {:catch e}
+            {@render errorDisplay(String(e).toString())}
+        {/await}
+        {#await recommendationsLoader then recommendations}
+            <div
+                in:scale
+                class="bg-neutral-200 p-4 rounded-md flex flex-col gap-2 sticky bottom-4"
+            >
+                <div class="font-bold text-2xl">
+                    Don't miss out on these articles!
+                </div>
+                <div class="flex flex-wrap gap-2">
+                    {#each recommendations as [id, rec]}
+                        <button
+                            class="p-2 bg-neutral-800 text-white rounded-md"
+                            onclick={() => selectFile(id)}
+                        >
+                            {rec.title}
+                        </button>
+                    {/each}
+                </div>
+            </div>
+        {/await}
     </div>
 </div>
 

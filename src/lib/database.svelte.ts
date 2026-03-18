@@ -132,18 +132,17 @@ export async function searchInIndex(termsAndWeights: { [key: string]: Schema.Sea
         }
     }
 
-    let done = false;
-
     let bestN: [number, number][] = [];
 
-    let todo = Object.keys(terms).length;
+    let nextDocumentId = 0;
 
-    while (todo > 0) {
+    while (nextDocumentId != -1) {
+        nextDocumentId = -1;
+
         let cosSimUp = 0;
         let cosSimLeft = 0;
         let cosSimRight = 0;
 
-        done = true;
         for (let key in terms) {
             let d = terms[key];
 
@@ -156,38 +155,36 @@ export async function searchInIndex(termsAndWeights: { [key: string]: Schema.Sea
                 d.position++;
                 cosSimUp += indexData.weight * termsAndWeights[key].weight;
                 cosSimLeft += Math.pow(indexData.weight, 2);
-                if (d.position >= d.data.length) {
-                    todo--;
+            }
+
+            if (d.position < d.data.length && (nextDocumentId === -1 || d.data[d.position].document < nextDocumentId)) {
+                nextDocumentId = d.data[d.position].document;
+            }
+        }
+
+        if (!exclude.includes(documentId)) {
+            let cosSim = cosSimUp / Math.sqrt(cosSimLeft * cosSimRight);
+
+            if (bestN.length < nResults) {
+                bestN.push([documentId, cosSim]);
+            } else {
+                let lowest = -1;
+                let lowestSimilarity = -1;
+                let i = 0;
+                for (let [documentId, similarity] of bestN) {
+                    if (lowestSimilarity == -1 || lowestSimilarity > similarity) {
+                        lowestSimilarity = similarity;
+                        lowest = i;
+                    }
+                    i++;
+                }
+                if (lowestSimilarity < cosSim) {
+                    bestN.splice(lowest, 1, [documentId, cosSim]);
                 }
             }
         }
 
-        if (exclude.includes(documentId)) {
-            documentId++;
-            continue;
-        }
-
-        let cosSim = cosSimUp / Math.sqrt(cosSimLeft * cosSimRight);
-
-        if (bestN.length < nResults) {
-            bestN.push([documentId, cosSim]);
-        } else {
-            let lowest = -1;
-            let lowestSimilarity = -1;
-            let i = 0;
-            for (let [documentId, similarity] of bestN) {
-                if (lowestSimilarity == -1 || lowestSimilarity > similarity) {
-                    lowestSimilarity = similarity;
-                    lowest = i;
-                }
-                i++;
-            }
-            if (lowestSimilarity < cosSim) {
-                bestN.splice(lowest, 1, [documentId, cosSim]);
-            }
-        }
-
-        documentId++;
+        documentId = nextDocumentId;
 
     }
 
