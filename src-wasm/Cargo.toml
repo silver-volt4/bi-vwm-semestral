@@ -16,3 +16,4 @@ serde_bytes = "0.11.17"
 stop-words = "0.10.0"
 tsify = { version = "0.5.5", features = ["js"] }
 wasm-bindgen = "0.2.100"
+web-sys = "0.3.91"

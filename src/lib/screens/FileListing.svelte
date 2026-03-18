@@ -3,6 +3,7 @@
     import { fileSelectDialog } from "../files";
     import { onMount } from "svelte";
     import { type Schema, getDocumentList } from "../database.svelte";
+    import IndexRebuilder from "../components/IndexRebuilder.svelte";
 
     let getListPromise:
         | Promise<Map<Schema.DocumentListPK, Schema.DocumentList>>
@@ -13,6 +14,8 @@
     }: {
         selectFile: (id: Schema.DocumentListPK) => any;
     } = $props();
+
+    let dialogRebuildCache = $state(false);
 
     async function addFiles() {
         let files = await fileSelectDialog();
@@ -26,6 +29,10 @@
         refresh();
     }
 
+    function rebuildCache() {
+        dialogRebuildCache = true;
+    }
+
     function refresh() {
         getListPromise = getDocumentList();
     }
@@ -35,8 +42,12 @@
     });
 </script>
 
+{#if dialogRebuildCache}
+    <IndexRebuilder onclose={() => (dialogRebuildCache = false)} />
+{/if}
+
 <div
-    class="flex flex-col items-center py-5 px-4 w-screen min-h-screen bg-yellow-100"
+    class="flex flex-col items-center py-5 px-4 w-full min-h-full bg-yellow-100"
 >
     <div class="w-full max-w-300 flex flex-col grow">
         <div class="my-5 text-center">
@@ -44,6 +55,8 @@
                 List of documents
             </h1>
             <button onclick={addFiles}>Add files...</button>
+
+            <button onclick={rebuildCache}>Index build</button>
         </div>
 
         <div class="flex flex-col gap-2">

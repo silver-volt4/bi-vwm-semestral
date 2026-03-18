@@ -224,6 +224,7 @@ dependencies = [
  "stop-words",
  "tsify",
  "wasm-bindgen",
+ "web-sys",
 ]
 
 [[package]]

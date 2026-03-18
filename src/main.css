@@ -1,1 +1,11 @@
 @import "tailwindcss";
+
+main, body {
+    overflow: hidden;
+}
+
+@layer components {
+    .btn {
+        @apply bg-amber-400 text-black px-3 py-2 cursor-pointer;
+    }
+}
