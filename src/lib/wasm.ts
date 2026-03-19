@@ -61,9 +61,17 @@ export async function buildIndex(statusProgress?: (status: IndexBuildStatus) => 
     console.info("Finished calculating weights.");
 
     console.info("Started inserting weights to IDB.");
+    processedCount = 0;
     for (let [term, weights] of w) {
         await insertWeightsToIndex(term, weights);
-        console.log("inserted something");
+        ++processedCount;
+        statusProgress?.({
+            processTermsPhase: {
+                lastProcessedTerm: term,
+            },
+            processedCount: processedCount,
+            totalCount: termCount
+        })
     }
     console.info("Finished inserting weights to IDB.");
     console.info("Finished index build.");

@@ -54,9 +54,9 @@
             <h1 class="text-4xl text-yellow-600 font-bold">
                 List of documents
             </h1>
-            <button onclick={addFiles}>Add files...</button>
+            <button class="btn" onclick={addFiles}>Add files...</button>
 
-            <button onclick={rebuildCache}>Index build</button>
+            <button class="btn" onclick={rebuildCache}>Index build</button>
         </div>
 
         <div

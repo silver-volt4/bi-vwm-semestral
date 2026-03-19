@@ -16,6 +16,26 @@
         await buildIndex(cb);
         onclose();
     }
+
+    let importDocumentsPhaseStarted: Date | null = null;
+    let processTermsPhaseStarted: Date | null = null;
+
+    function estimateTimeRemaining(
+        start: Date,
+        processed: number,
+        total: number,
+    ) {
+        let now = new Date();
+        let diff = +now - +start;
+
+        let remaining = (diff / processed) * (total - processed);
+
+        let seconds = Math.floor(remaining / 1000) + 1;
+        let minutes = Math.floor(seconds / 60);
+        seconds %= 60;
+
+        return `${minutes}m ${seconds}s`;
+    }
 </script>
 
 <div
@@ -38,12 +58,26 @@
         <div>
             <b>Progress</b>: {status.processedCount} / {status.totalCount}
         </div>
+        <div>
+            <b>Estimated time left</b>: {estimateTimeRemaining(
+                (importDocumentsPhaseStarted ??= new Date()),
+                status.processedCount,
+                status.totalCount,
+            )}
+        </div>
     {:else if status?.processTermsPhase}
         <div>
             <b>Processed term</b>: {status.processTermsPhase.lastProcessedTerm}
         </div>
         <div>
             <b>Progress</b>: {status.processedCount} / {status.totalCount}
+        </div>
+        <div>
+            <b>Estimated time left</b>: {estimateTimeRemaining(
+                (processTermsPhaseStarted ??= new Date()),
+                status.processedCount,
+                status.totalCount,
+            )}
         </div>
     {/if}
 </div>
