@@ -1,4 +1,4 @@
-import { clearIndex, getDocument, getDocumentList, insertWeightsToIndex } from "./database.svelte";
+import { clearIndex, getDocument, getDocumentList, writeTermIndex } from "./database.svelte";
 import loadWasm, { IndexBuilder, initialize } from "./wasm/src_wasm";
 
 async function init() {
@@ -21,19 +21,6 @@ export interface IndexBuildStatus {
 
     processedCount: number,
     totalCount: number
-}
-
-async function* batched(i: Iterable<Promise<any>>) {
-    let b = [];
-    for (let x of i) {
-        b.push(x);
-
-        if (b.length === 100) {
-            yield Promise.all(b);
-        }
-        b = [];
-    }
-    yield Promise.all(b);
 }
 
 export async function buildIndex(statusProgress?: (status: IndexBuildStatus) => Promise<void>) {
@@ -68,27 +55,28 @@ export async function buildIndex(statusProgress?: (status: IndexBuildStatus) => 
 
     console.info("Started calculating weights.");
     let w: [string, [string, number][]][] = [];
-    indexBuilder.calculate_weights((term: string, weights: [string, number][]) => {
-        w.push([term, weights]);
-    });
+    let wtf = indexBuilder.calculate_weights();
+
+    await writeTermIndex(wtf);
+
+    console.log(wtf);
+
+    return 0;
     console.info("Finished calculating weights.");
 
     console.info("Started inserting weights to IDB.");
+
     processedCount = 0;
 
-    for await (let batch of batched(w.map(async ([term, weights]) => {
-        await insertWeightsToIndex(term, weights);
-        ++processedCount;
-        await statusProgress?.({
-            processTermsPhase: {
-                lastProcessedTerm: term,
-            },
-            processedCount: processedCount,
-            totalCount: termCount
-        })
-    }))) {
-        await batch;
+    let batch = [];
+    for (let [term, weights] of w) {
+        batch.push((async () => {
+            await insertWeightsToIndex(term, weights);
+            ++processedCount;
+        })());
+       
     }
+    await Promise.all(batch);
 
     console.info("Finished inserting weights to IDB.");
     console.info("Finished index build.");

@@ -18,7 +18,6 @@ const DIR_TERMS = await FS.getDirectoryHandle("terms", { create: true });
 
 console.log(FS);
 console.log(DIR_DOCUMENTS);
-console.log(DIR_TERMS);
 
 export async function addDocument(title: string, content: string) {
     let file = await DIR_DOCUMENTS.getFileHandle(title, { create: true });
@@ -53,10 +52,10 @@ export async function clearIndex() {
     // await DB.clear('searchIndex');
 }
 
-export async function insertWeightsToIndex(term: string, weights: [string, number][]) {
-    let termHandle = await DIR_TERMS.getFileHandle(term, {create: true});
+export async function writeTermIndex(data: Uint8Array) {
+    let termHandle = await FS.getFileHandle("termIndex", { create: true });
     let wr = await termHandle.createWritable({ keepExistingData: false });
-    await wr.write(JSON.stringify(weights));
+    await wr.write(JSON.stringify(data));
     await wr.close();
 }
 

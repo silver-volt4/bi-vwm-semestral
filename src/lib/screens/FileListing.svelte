@@ -19,6 +19,7 @@
 
     async function addFiles() {
         let files = await fileSelectDialog();
+        console.log("Adding files");
         await Promise.all(
             files.map(async (file) => {
                 let title = file.name;
@@ -26,6 +27,7 @@
                 await addDocument(title, content);
             }),
         );
+        console.log("Done");
         refresh();
     }
 

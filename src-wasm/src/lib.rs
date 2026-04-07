@@ -1,4 +1,7 @@
-use std::collections::{BTreeMap, HashMap, HashSet};
+use std::{
+    collections::{BTreeMap, HashMap, HashSet},
+    io::{Cursor, Write},
+};
 use wasm_bindgen::{JsValue, prelude::wasm_bindgen};
 use web_sys::js_sys::Function;
 
@@ -57,7 +60,21 @@ impl IndexBuilder {
         self.document_count += 1;
     }
 
-    pub fn calculate_weights(&self, cb: &Function) {
+    pub fn calculate_weights(&self) -> Vec<u8> {
+        let mut buf = Vec::<u8>::new();
+
+        let mut map = BTreeMap::<String, usize>::new();
+
+        for (term, _) in &self.terms {
+            map.insert(term.clone(), 0);
+        }
+
+        let header = postcard::to_stdvec(&map).unwrap();
+        let header_len = &header.len();
+
+        buf.write_all(&header_len.to_ne_bytes()).unwrap();
+        buf.write_all(&header).unwrap();
+
         for (term, term_data) in &self.terms {
             let weights: Vec<(String, f64)> = term_data
                 .documents
@@ -69,13 +86,19 @@ impl IndexBuilder {
                     (document_id.clone(), tf * idf)
                 })
                 .collect();
-            cb.call2(
-                &JsValue::NULL,
-                &JsValue::from_str(&term),
-                &serde_wasm_bindgen::to_value(&weights).unwrap(),
-            )
-            .unwrap();
+
+            match map.get_mut(term) {
+                Some(pos) => *pos = buf.len(),
+                None => {}
+            };
+
+            buf.write_all(&postcard::to_stdvec(&weights).unwrap())
+                .unwrap();
         }
+
+        buf[size_of::<usize>()..(size_of::<usize>() + *header_len)].copy_from_slice(&header);
+
+        return buf;
     }
 
     pub fn stats(&self) -> usize {
