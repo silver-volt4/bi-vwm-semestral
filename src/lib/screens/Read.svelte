@@ -5,7 +5,6 @@
         getDocumentMeta,
         getWeightsOfDocument,
         searchInIndex,
-        type Schema,
     } from "../database.svelte";
     import { scale } from "svelte/transition";
 
@@ -13,8 +12,8 @@
         fileId,
         selectFile,
     }: {
-        fileId: Schema.DocumentListPK;
-        selectFile: (id: Schema.DocumentListPK) => any;
+        fileId: string;
+        selectFile: (id: string) => any;
     } = $props();
 
     async function getBestSimilarDocuments(id: number) {
@@ -34,11 +33,7 @@
 
         return result;
     }
-
-    let fileReader: null | Promise<
-        [Schema.DocumentContent, Map<number, Schema.DocumentList>]
-    > = $state(null);
-
+    
     let documentContent = $derived(getDocument(fileId));
     let recommendationsLoader = $derived(getBestSimilarDocuments(fileId));
 </script>
@@ -55,7 +50,7 @@
             <div class="self-center">Loading...</div>
         {:then file}
             {#if file}
-                {@html marked.parse(file?.content)}
+                {@html marked.parse(file)}
             {:else}
                 {@render errorDisplay(
                     "Invalid document ID (does the file exist?)",

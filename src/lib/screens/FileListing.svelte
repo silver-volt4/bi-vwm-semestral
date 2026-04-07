@@ -2,17 +2,17 @@
     import { addDocument } from "../database.svelte";
     import { fileSelectDialog } from "../files";
     import { onMount } from "svelte";
-    import { type Schema, getDocumentList } from "../database.svelte";
+    import {getDocumentList } from "../database.svelte";
     import IndexRebuilder from "../components/IndexRebuilder.svelte";
 
     let getListPromise:
-        | Promise<Map<Schema.DocumentListPK, Schema.DocumentList>>
+        | Promise<string[]>
         | undefined = $state();
 
     let {
         selectFile,
     }: {
-        selectFile: (id: Schema.DocumentListPK) => any;
+        selectFile: (id: string) => any;
     } = $props();
 
     let dialogRebuildCache = $state(false);
@@ -65,13 +65,13 @@
         >
             {#if getListPromise}
                 {#await getListPromise then data}
-                    {#each data as row}
+                    {#each data as item}
                         <button
-                            onclick={() => selectFile(row[0])}
+                            onclick={() => selectFile(item)}
                             class="py-2 px-3 bg-yellow-200 text-start cursor-pointer rounded-md shadow-lg"
                         >
                             <div class="text-lg">
-                                {row[1].title}
+                                {item}
                             </div>
                         </button>
                     {/each}

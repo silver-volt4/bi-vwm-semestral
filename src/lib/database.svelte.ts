@@ -1,106 +1,66 @@
 import { openDB, type DBSchema } from "idb";
 
-export namespace Schema {
-    export type DocumentListPK = DB['documentList']['key'];
-
-    export interface DocumentList {
-        title: string,
+async function getFilesystemHandle() {
+    let fs;
+    try {
+        fs = await navigator.storage.getDirectory();
+    } catch (e) {
+        alert("This browser does not support 'Origin private file system' technology required for this project to function");
+        throw e;
     }
 
-    export interface DocumentContent {
-        key: number,
-        content: string,
-    }
-
-    export interface SearchIndex {
-        term: string,
-        document: DocumentListPK,
-        weight: number,
-    }
-
-    export interface DB extends DBSchema {
-        'documentList': {
-            key: number;
-            value: DocumentList;
-        };
-        'documentContent': {
-            key: DocumentListPK;
-            value: DocumentContent;
-        };
-        'searchIndex': {
-            key: number,
-            value: SearchIndex,
-            indexes: { 'indexTerm': string, 'indexDocument': DocumentListPK }
-        }
-    }
+    return fs;
 }
 
-const DB = await openDB<Schema.DB>('appdata', 7, {
-    async upgrade(db, oldVersion, newVersion, tx) {
-        console.info("Upgrading DB");
+const FS = await getFilesystemHandle();
+const DIR_DOCUMENTS = await FS.getDirectoryHandle("documents", { create: true });
+const DIR_TERMS = await FS.getDirectoryHandle("terms", { create: true });
 
-        if (!db.objectStoreNames.contains('documentList')) {
-            db.createObjectStore('documentList', { autoIncrement: true });
-        }
-        if (!db.objectStoreNames.contains('documentContent')) {
-            db.createObjectStore('documentContent', { keyPath: 'key' });
-        }
-        if (!db.objectStoreNames.contains('searchIndex')) {
-            let os = db.createObjectStore('searchIndex', { autoIncrement: true });
-            os.createIndex("indexTerm", "term");
-            os.createIndex("indexDocument", "document");
-        }
-    }
-});
-
-export default DB;
+console.log(FS);
+console.log(DIR_DOCUMENTS);
+console.log(DIR_TERMS);
 
 export async function addDocument(title: string, content: string) {
-    let tx = DB.transaction(["documentList", "documentContent"], "readwrite");
-    const documentList = tx.objectStore("documentList");
-    const documentContent = tx.objectStore("documentContent");
-    let id = await documentList.add({ title: title });
-    await documentContent.add({ key: id, content: content })
-    await tx.done;
+    let file = await DIR_DOCUMENTS.getFileHandle(title, { create: true });
+    let wr = await file.createWritable();
+    await wr.write(content);
+    await wr.close();
 }
 
 export async function getDocumentList() {
-    let tx = DB.transaction("documentList");
-    let c = await tx.objectStore("documentList").openCursor();
-    let result = new Map<Schema.DocumentListPK, Schema.DocumentList>();
-    while (c) {
-        result.set(c.key, c.value);
-        c = await c.continue();
+    let documents = await FS.getDirectoryHandle("documents");
+    let filenames = [];
+    for await (const [filename, handle] of documents.entries()) {
+        if (handle.kind !== "file") continue;
+        filenames.push(filename);
     }
-    return result;
+    return filenames;
 }
 
-export async function getDocumentMeta(key: Schema.DocumentListPK) {
-    let d = await DB.get("documentList", key) ?? null;
-    if (!d) throw new Error();
-    return d;
+export async function getDocumentMeta(filename: string) {
+    throw new Error("Deprecated")
 }
 
-export async function getDocument(key: Schema.DocumentListPK) {
-    let d = await DB.get("documentContent", key) ?? null;
-    if (!d) throw new Error();
-    return d;
+export async function getDocument(filename: string) {
+    let documents = await FS.getDirectoryHandle("documents");
+    let fileHandle = await documents.getFileHandle(filename);
+    let file = await fileHandle.getFile();
+    let text = await file.text();
+    return text;
 }
 
 export async function clearIndex() {
-    await DB.clear('searchIndex');
+    // await DB.clear('searchIndex');
 }
 
-export async function insertWeightsToIndex(term: string, weights: [number, number][]) {
-    let tx = DB.transaction("searchIndex", "readwrite");
-    for (let [documentId, weight] of weights) {
-        let os = tx.objectStore("searchIndex");
-        os.add({ term: term, document: documentId, weight: weight });
-    }
-    await tx.done;
+export async function insertWeightsToIndex(term: string, weights: [string, number][]) {
+    let termHandle = await DIR_TERMS.getFileHandle(term, {create: true});
+    let wr = await termHandle.createWritable({ keepExistingData: false });
+    await wr.write(JSON.stringify(weights));
+    await wr.close();
 }
 
-export async function getWeightsOfDocument(document: Schema.DocumentListPK) {
+export async function getWeightsOfDocument(document: string) {
     return await DB.getAllFromIndex('searchIndex', 'indexDocument', document)
 }
 
@@ -108,7 +68,7 @@ export async function getWeightsOfTerm(term: string) {
     return await DB.getAllFromIndex('searchIndex', 'indexTerm', term);
 }
 
-export async function searchInIndex(termsAndWeights: { [key: string]: Schema.SearchIndex }, exclude: Schema.DocumentListPK[] = [], nResults: number = 5) {
+export async function searchInIndex(termsAndWeights: { [key: string]: Schema.SearchIndex }, exclude: string[] = [], nResults: number = 5) {
     let terms: {
         [key: string]: {
             position: number,
