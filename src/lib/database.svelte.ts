@@ -55,8 +55,13 @@ export async function clearIndex() {
 export async function writeTermIndex(data: Uint8Array) {
     let termHandle = await FS.getFileHandle("termIndex", { create: true });
     let wr = await termHandle.createWritable({ keepExistingData: false });
-    await wr.write(JSON.stringify(data));
+    await wr.write(new Blob([data as any]));
     await wr.close();
+}
+
+export async function readTermIndex() {
+    let termHandle = await FS.getFileHandle("termIndex");
+    return termHandle;
 }
 
 export async function getWeightsOfDocument(document: string) {

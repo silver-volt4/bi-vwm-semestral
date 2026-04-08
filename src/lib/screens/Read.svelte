@@ -5,6 +5,7 @@
         getDocumentMeta,
         getWeightsOfDocument,
         searchInIndex,
+        type Schema,
     } from "../database.svelte";
     import { scale } from "svelte/transition";
 
@@ -12,8 +13,8 @@
         fileId,
         selectFile,
     }: {
-        fileId: string;
-        selectFile: (id: string) => any;
+        fileId: Schema.DocumentListPK;
+        selectFile: (id: Schema.DocumentListPK) => any;
     } = $props();
 
     async function getBestSimilarDocuments(id: number) {
@@ -33,7 +34,11 @@
 
         return result;
     }
-    
+
+    let fileReader: null | Promise<
+        [Schema.DocumentContent, Map<number, Schema.DocumentList>]
+    > = $state(null);
+
     let documentContent = $derived(getDocument(fileId));
     let recommendationsLoader = $derived(getBestSimilarDocuments(fileId));
 </script>
@@ -50,7 +55,7 @@
             <div class="self-center">Loading...</div>
         {:then file}
             {#if file}
-                {@html marked.parse(file)}
+                {@html marked.parse(file?.content)}
             {:else}
                 {@render errorDisplay(
                     "Invalid document ID (does the file exist?)",
@@ -59,11 +64,14 @@
         {:catch e}
             {@render errorDisplay(String(e).toString())}
         {/await}
-        {#await recommendationsLoader then recommendations}
-            <div
-                in:scale
-                class="bg-neutral-200 p-4 rounded-md flex flex-col gap-2 sticky bottom-4"
-            >
+        <div
+            in:scale
+            class="bg-neutral-200 p-4 rounded-md flex flex-col gap-2 sticky bottom-4"
+        >
+            <div class="font-bold text-2xl shimmer-bg" style="background-position-x": `background${}px`}}>
+                Don't miss out on these articles!
+            </div>
+            {#await recommendationsLoader then recommendations}
                 <div class="font-bold text-2xl">
                     Don't miss out on these articles!
                 </div>
@@ -77,8 +85,8 @@
                         </button>
                     {/each}
                 </div>
-            </div>
-        {/await}
+            {/await}
+        </div>
     </div>
 </div>
 
@@ -96,5 +104,16 @@
     }
     .md-content :global(h4) {
         @apply text-lg font-bold my-1;
+    }
+
+    .shimmer-bg {
+        background: linear-gradient(
+            90deg,
+            rgba(0, 0, 0, 0) 0%,
+            rgba(0, 0, 0, 0.2) 50%,
+            rgba(0, 0, 0, 0) 100%
+        );
+        animation-name: shimmer-movement;
+        animation-duration: 0.2s;
     }
 </style>

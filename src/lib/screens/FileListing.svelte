@@ -4,6 +4,7 @@
     import { onMount } from "svelte";
     import {getDocumentList } from "../database.svelte";
     import IndexRebuilder from "../components/IndexRebuilder.svelte";
+    import { readIndex } from "../wasm";
 
     let getListPromise:
         | Promise<string[]>
@@ -16,6 +17,8 @@
     } = $props();
 
     let dialogRebuildCache = $state(false);
+
+    readIndex();
 
     async function addFiles() {
         let files = await fileSelectDialog();
