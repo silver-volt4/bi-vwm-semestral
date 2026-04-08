@@ -40,6 +40,21 @@ const DB = await openDB<Schema.DB>('appdata', 7, {
 
 export default DB;
 
+async function getFilesystemHandle() {
+    let fs;
+    try {
+        fs = await navigator.storage.getDirectory();
+    } catch (e) {
+        alert("This browser does not support 'Origin private file system' technology required for this project to function");
+        throw e;
+    }
+
+    return fs;
+}
+
+const FS = await getFilesystemHandle();
+
+
 export async function addDocument(title: string, content: string) {
     let tx = DB.transaction(["documentList", "documentContent"], "readwrite");
     const documentList = tx.objectStore("documentList");
@@ -72,3 +87,18 @@ export async function getDocument(key: Schema.DocumentListPK) {
     return d;
 }
 
+export async function clearIndex() {
+    // await DB.clear('searchIndex');
+}
+
+export async function writeTermIndex(data: Uint8Array) {
+    let termHandle = await FS.getFileHandle("termIndex", { create: true });
+    let wr = await termHandle.createWritable({ keepExistingData: false });
+    await wr.write(new Blob([data as any]));
+    await wr.close();
+}
+
+export async function readTermIndex() {
+    let termHandle = await FS.getFileHandle("termIndex");
+    return termHandle;
+}

@@ -1,5 +1,5 @@
-import { clearIndex, getDocument, getDocumentList, insertWeightsToIndex, type Schema } from "./database.svelte";
-import loadWasm, { IndexBuilder, initialize } from "./wasm/src_wasm";
+import { clearIndex, getDocument, getDocumentList, readTermIndex, writeTermIndex } from "./database.svelte";
+import loadWasm, { IndexBuilder, IndexSearcher, initialize } from "./wasm/src_wasm";
 
 async function init() {
     console.log("Loading WASM");
@@ -12,7 +12,7 @@ await init();
 
 export interface IndexBuildStatus {
     importDocumentsPhase?: {
-        lastBuiltDocument: Schema.DocumentList,
+        lastBuiltDocument: string,
         termCount: number,
     },
     processTermsPhase?: {
@@ -31,21 +31,21 @@ export async function buildIndex(statusProgress?: (status: IndexBuildStatus) => 
     let processedCount = 0;
     let termCount = 0;
     console.info("Started adding documents.");
-    for (let [key, documentFromList] of documents) {
-        let document = await getDocument(key);
-        if (!document) {
+    for (let filename of documents) {
+        let content = await getDocument(filename);
+        if (!content) {
             continue;
         }
 
         ++processedCount;
-        indexBuilder.add_document(key, document.content);
+        indexBuilder.add_document(filename, content);
         statusProgress?.({
             importDocumentsPhase: {
-                lastBuiltDocument: documentFromList,
+                lastBuiltDocument: filename,
                 termCount: termCount = indexBuilder.stats(),
             },
             processedCount: processedCount,
-            totalCount: documents.size
+            totalCount: documents.length
         })
     }
     console.info("Finished adding documents.");
@@ -54,25 +54,33 @@ export async function buildIndex(statusProgress?: (status: IndexBuildStatus) => 
     console.info("Cleared index table.");
 
     console.info("Started calculating weights.");
-    let w: [string, [number, number][]][] = [];
-    indexBuilder.calculate_weights((term: string, weights: [number, number][]) => {
-        w.push([term, weights]);
-    });
+    let cacheFile = indexBuilder.calculate_weights();
+
+    console.log(cacheFile);
     console.info("Finished calculating weights.");
 
     console.info("Started inserting weights to IDB.");
-    processedCount = 0;
-    for (let [term, weights] of w) {
-        await insertWeightsToIndex(term, weights);
-        ++processedCount;
-        statusProgress?.({
-            processTermsPhase: {
-                lastProcessedTerm: term,
-            },
-            processedCount: processedCount,
-            totalCount: termCount
-        })
-    }
+    await writeTermIndex(cacheFile);
     console.info("Finished inserting weights to IDB.");
+
     console.info("Finished index build.");
+}
+
+export async function readIndex() {
+    let index = await readTermIndex();
+    let f = await index.getFile();
+
+    let is = new IndexSearcher();
+
+    let headerLengthBytes = IndexSearcher.get_header_length_size();
+    let lengthBytes = await f.slice(0, IndexSearcher.get_header_length_size()).bytes()
+    let headerBytes = IndexSearcher.get_header_length(lengthBytes);
+    is.load_header(await f.slice(headerLengthBytes, headerLengthBytes + headerBytes).bytes());
+
+    let { start, end } = is.get_slice_for("italy")
+    console.log(start, end);
+    let r = is.get_index_data_for(await f.slice(start, end).bytes());
+    r.forEach(k => {
+        console.log(k.get_term(), k.weight);
+    })
 }
