@@ -1,28 +1,24 @@
 <script lang="ts">
-    import { addDocument } from "../database.svelte";
+    import { addDocument } from "../documents";
     import { fileSelectDialog } from "../files";
     import { onMount } from "svelte";
-    import {getDocumentList } from "../database.svelte";
+    import { type Schema, getDocumentList } from "../documents";
     import IndexRebuilder from "../components/IndexRebuilder.svelte";
-    import { readIndex } from "../wasm";
 
     let getListPromise:
-        | Promise<string[]>
+        | Promise<Map<Schema.DocumentListPK, Schema.DocumentList>>
         | undefined = $state();
 
     let {
         selectFile,
     }: {
-        selectFile: (id: string) => any;
+        selectFile: (id: Schema.DocumentListPK) => any;
     } = $props();
 
     let dialogRebuildCache = $state(false);
 
-    readIndex();
-
     async function addFiles() {
         let files = await fileSelectDialog();
-        console.log("Adding files");
         await Promise.all(
             files.map(async (file) => {
                 let title = file.name;
@@ -30,7 +26,6 @@
                 await addDocument(title, content);
             }),
         );
-        console.log("Done");
         refresh();
     }
 
@@ -70,13 +65,13 @@
         >
             {#if getListPromise}
                 {#await getListPromise then data}
-                    {#each data as item}
+                    {#each data as row}
                         <button
-                            onclick={() => selectFile(item)}
+                            onclick={() => selectFile(row[0])}
                             class="py-2 px-3 bg-yellow-200 text-start cursor-pointer rounded-md shadow-lg"
                         >
                             <div class="text-lg">
-                                {item}
+                                {row[1].title}
                             </div>
                         </button>
                     {/each}

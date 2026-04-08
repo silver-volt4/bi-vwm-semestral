@@ -5,17 +5,23 @@ use std::{
 
 use wasm_bindgen::prelude::wasm_bindgen;
 
+use crate::index_searcher::{DocumentToTermListIndexSearcher, TermToDocumentWeightIndexSearcher};
+
+pub type DocumentID = usize;
+
 #[derive(Default)]
-struct Term {
-    documents: BTreeMap<String, usize>,
-    top_occurrences: usize,
+pub struct Term {
+    pub documents: BTreeMap<DocumentID, usize>,
+    pub top_occurrences: usize,
 }
 
 #[wasm_bindgen]
 pub struct IndexBuilder {
     stopwords: HashSet<String>,
-    terms: HashMap<String, Term>,
-    document_count: usize,
+    #[wasm_bindgen(skip)]
+    pub terms: BTreeMap<String, Term>,
+    #[wasm_bindgen(skip)]
+    pub document_count: usize,
 }
 
 #[wasm_bindgen]
@@ -28,12 +34,12 @@ impl IndexBuilder {
                     .iter()
                     .map(|s| porter_stemmer::stem(s).to_lowercase()),
             ),
-            terms: HashMap::new(),
+            terms: BTreeMap::new(),
             document_count: 0,
         }
     }
 
-    pub fn add_document(&mut self, document_id: String, content: String) {
+    pub fn add_document(&mut self, document_id: DocumentID, content: String) {
         content
             .split(|c: char| !c.is_ascii_alphabetic())
             .map(|s| porter_stemmer::stem(s).to_lowercase())
@@ -49,46 +55,12 @@ impl IndexBuilder {
         self.document_count += 1;
     }
 
-    pub fn calculate_weights(&self) -> Vec<u8> {
-        let mut buf = Vec::<u8>::new();
+    pub fn create_term_to_document_weight_index_file(&self) -> Vec<u8> {
+        TermToDocumentWeightIndexSearcher::create_index_file(&self)
+    }
 
-        let mut map = BTreeMap::<String, usize>::new();
-
-        for (term, _) in &self.terms {
-            map.insert(term.clone(), usize::max_value());
-        }
-
-        let header = postcard::to_stdvec(&map).unwrap();
-
-        buf.write_all(&0usize.to_ne_bytes()).unwrap();
-        buf.write_all(&header).unwrap();
-
-        for (term, term_data) in &self.terms {
-            let weights: Vec<(String, f64)> = term_data
-                .documents
-                .iter()
-                .map(|(document_id, occurrences)| {
-                    let tf = *occurrences as f64 / term_data.top_occurrences as f64;
-                    let idf =
-                        f64::log2(self.document_count as f64 / term_data.documents.len() as f64);
-                    (document_id.clone(), tf * idf)
-                })
-                .collect();
-
-            match map.get_mut(term) {
-                Some(pos) => *pos = buf.len(),
-                None => {}
-            };
-
-            buf.write_all(&postcard::to_stdvec(&weights).unwrap())
-                .unwrap();
-        }
-
-        let header = postcard::to_stdvec(&map).unwrap();
-        buf[0..size_of::<usize>()].copy_from_slice(&header.len().to_ne_bytes());
-        buf[size_of::<usize>()..(size_of::<usize>() + header.len())].copy_from_slice(&header);
-
-        return buf;
+    pub fn create_document_to_term_list(&self) -> Vec<u8> {
+        DocumentToTermListIndexSearcher::create_index_file(&self)
     }
 
     pub fn stats(&self) -> usize {

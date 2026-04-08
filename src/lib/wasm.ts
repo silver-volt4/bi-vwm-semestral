@@ -1,5 +1,7 @@
-import { clearIndex, getDocument, getDocumentList, readTermIndex, writeTermIndex } from "./database.svelte";
-import loadWasm, { IndexBuilder, IndexSearcher, initialize } from "./wasm/src_wasm";
+import { clearIndex, getDocument, getDocumentList, type Schema } from "./documents";
+import { readFile } from "./files";
+import { writeFile } from "./files";
+import loadWasm, { IndexBuilder, TermToDocumentWeightIndexSearcher, DocumentToTermListIndexSearcher, initialize } from "./wasm/src_wasm";
 
 async function init() {
     console.log("Loading WASM");
@@ -12,7 +14,7 @@ await init();
 
 export interface IndexBuildStatus {
     importDocumentsPhase?: {
-        lastBuiltDocument: string,
+        lastBuiltDocument: Schema.DocumentList,
         termCount: number,
     },
     processTermsPhase?: {
@@ -31,21 +33,21 @@ export async function buildIndex(statusProgress?: (status: IndexBuildStatus) => 
     let processedCount = 0;
     let termCount = 0;
     console.info("Started adding documents.");
-    for (let filename of documents) {
-        let content = await getDocument(filename);
-        if (!content) {
+    for (let [key, documentFromList] of documents) {
+        let document = await getDocument(key);
+        if (!document) {
             continue;
         }
 
         ++processedCount;
-        indexBuilder.add_document(filename, content);
+        indexBuilder.add_document(key, document.content);
         statusProgress?.({
             importDocumentsPhase: {
-                lastBuiltDocument: filename,
+                lastBuiltDocument: documentFromList,
                 termCount: termCount = indexBuilder.stats(),
             },
             processedCount: processedCount,
-            totalCount: documents.length
+            totalCount: documents.size
         })
     }
     console.info("Finished adding documents.");
@@ -53,34 +55,38 @@ export async function buildIndex(statusProgress?: (status: IndexBuildStatus) => 
     await clearIndex();
     console.info("Cleared index table.");
 
-    console.info("Started calculating weights.");
-    let cacheFile = indexBuilder.calculate_weights();
-
-    console.log(cacheFile);
-    console.info("Finished calculating weights.");
-
-    console.info("Started inserting weights to IDB.");
-    await writeTermIndex(cacheFile);
-    console.info("Finished inserting weights to IDB.");
+    console.info("Started building cache files.");
+    await writeFile("termToDocumentIndex", indexBuilder.create_term_to_document_weight_index_file());
+    await writeFile("documentToTermIndex", indexBuilder.create_document_to_term_list());
+    console.info("Finished building cache files.");
 
     console.info("Finished index build.");
 }
 
-export async function readIndex() {
-    let index = await readTermIndex();
-    let f = await index.getFile();
+export async function recommendSimilar(document: Schema.DocumentListPK) {
+    let documentToTermIndex = await readFile("documentToTermIndex");
+    let termToDocumentIndex = await readFile("termToDocumentIndex");
 
-    let is = new IndexSearcher();
+    let documentToTermIndexSearcher = new DocumentToTermListIndexSearcher();
+    let termToDocumentIndexSearcher = new TermToDocumentWeightIndexSearcher();
 
-    let headerLengthBytes = IndexSearcher.get_header_length_size();
-    let lengthBytes = await f.slice(0, IndexSearcher.get_header_length_size()).bytes()
-    let headerBytes = IndexSearcher.get_header_length(lengthBytes);
-    is.load_header(await f.slice(headerLengthBytes, headerLengthBytes + headerBytes).bytes());
+    let headerLengthBytes = DocumentToTermListIndexSearcher.get_header_length_size();
+    let lengthBytes = await documentToTermIndex.slice(0, headerLengthBytes).bytes()
+    let headerBytes = DocumentToTermListIndexSearcher.get_header_length(lengthBytes);
+    documentToTermIndexSearcher.load_header(await documentToTermIndex.slice(headerLengthBytes, headerLengthBytes + headerBytes).bytes());
 
-    let { start, end } = is.get_slice_for("italy")
-    console.log(start, end);
-    let r = is.get_index_data_for(await f.slice(start, end).bytes());
-    r.forEach(k => {
-        console.log(k.get_term(), k.weight);
-    })
+    headerLengthBytes = TermToDocumentWeightIndexSearcher.get_header_length_size();
+    lengthBytes = await termToDocumentIndex.slice(0, headerLengthBytes).bytes()
+    headerBytes = TermToDocumentWeightIndexSearcher.get_header_length(lengthBytes);
+    termToDocumentIndexSearcher.load_header(await termToDocumentIndex.slice(headerLengthBytes, headerLengthBytes + headerBytes).bytes());
+
+    let { start, end } = documentToTermIndexSearcher.get_slice_for(document)
+    let terms = documentToTermIndexSearcher.get_index_data_for(await documentToTermIndex.slice(start, end).bytes())
+
+    for (let term of terms) {
+        let { start, end } = termToDocumentIndexSearcher.get_slice_for(term);
+        termToDocumentIndexSearcher.get_weighting_data(term, await termToDocumentIndex.slice(start, end).bytes());
+    }
+
+    return termToDocumentIndexSearcher.recommend_similar(document, 5);
 }

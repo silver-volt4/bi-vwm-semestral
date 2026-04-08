@@ -1,22 +1,23 @@
 <script lang="ts">
+    import { type Schema } from "./lib/documents";
     import FileListing from "./lib/screens/FileListing.svelte";
     import Read from "./lib/screens/Read.svelte";
 
-    let selectedFilename: string | null = $state(null);
+    let selectedFileId: Schema.DocumentListPK | null = $state(null);
 </script>
 
 <div class="overflow-y-auto w-screen h-screen">
-    {#if selectedFilename === null}
+    {#if selectedFileId === null}
         <FileListing
             selectFile={(fileId) => {
-                selectedFilename = fileId;
+                selectedFileId = fileId;
             }}
         />
     {:else}
         <Read
-            fileId={selectedFilename}
+            fileId={selectedFileId}
             selectFile={(fileId) => {
-                selectedFilename = fileId;
+                selectedFileId = fileId;
             }}
         ></Read>
     {/if}
