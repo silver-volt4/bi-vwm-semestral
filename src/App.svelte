@@ -1,5 +1,5 @@
 <script lang="ts">
-    import { type Schema } from "./lib/database.svelte";
+    import { type Schema } from "./lib/documents";
     import FileListing from "./lib/screens/FileListing.svelte";
     import Read from "./lib/screens/Read.svelte";
 

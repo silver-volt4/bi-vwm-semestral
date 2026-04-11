@@ -1,8 +1,8 @@
 <script lang="ts">
-    import { addDocument } from "../database.svelte";
+    import { addDocument } from "../documents";
     import { fileSelectDialog } from "../files";
     import { onMount } from "svelte";
-    import { type Schema, getDocumentList } from "../database.svelte";
+    import { type Schema, getDocumentList } from "../documents";
     import IndexRebuilder from "../components/IndexRebuilder.svelte";
 
     let getListPromise:

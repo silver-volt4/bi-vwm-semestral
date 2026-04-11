@@ -1,5 +1,7 @@
-import { clearIndex, getDocument, getDocumentList, insertWeightsToIndex, type Schema } from "./database.svelte";
-import loadWasm, { IndexBuilder, initialize } from "./wasm/src_wasm";
+import { clearIndex, getDocument, getDocumentList, type Schema } from "./documents";
+import { readFile } from "./files";
+import { writeFile } from "./files";
+import loadWasm, { IndexBuilder, TermToDocumentWeightIndexSearcher, DocumentToTermListIndexSearcher, initialize } from "./wasm/src_wasm";
 
 async function init() {
     console.log("Loading WASM");
@@ -53,26 +55,38 @@ export async function buildIndex(statusProgress?: (status: IndexBuildStatus) => 
     await clearIndex();
     console.info("Cleared index table.");
 
-    console.info("Started calculating weights.");
-    let w: [string, [number, number][]][] = [];
-    indexBuilder.calculate_weights((term: string, weights: [number, number][]) => {
-        w.push([term, weights]);
-    });
-    console.info("Finished calculating weights.");
+    console.info("Started building cache files.");
+    await writeFile("termToDocumentIndex", indexBuilder.create_term_to_document_weight_index_file());
+    await writeFile("documentToTermIndex", indexBuilder.create_document_to_term_list());
+    console.info("Finished building cache files.");
 
-    console.info("Started inserting weights to IDB.");
-    processedCount = 0;
-    for (let [term, weights] of w) {
-        await insertWeightsToIndex(term, weights);
-        ++processedCount;
-        statusProgress?.({
-            processTermsPhase: {
-                lastProcessedTerm: term,
-            },
-            processedCount: processedCount,
-            totalCount: termCount
-        })
-    }
-    console.info("Finished inserting weights to IDB.");
     console.info("Finished index build.");
+}
+
+export async function recommendSimilar(document: Schema.DocumentListPK) {
+    let documentToTermIndex = await readFile("documentToTermIndex");
+    let termToDocumentIndex = await readFile("termToDocumentIndex");
+
+    let documentToTermIndexSearcher = new DocumentToTermListIndexSearcher();
+    let termToDocumentIndexSearcher = new TermToDocumentWeightIndexSearcher();
+
+    let headerLengthBytes = DocumentToTermListIndexSearcher.get_header_length_size();
+    let lengthBytes = await documentToTermIndex.slice(0, headerLengthBytes).bytes()
+    let headerBytes = DocumentToTermListIndexSearcher.get_header_length(lengthBytes);
+    documentToTermIndexSearcher.load_header(await documentToTermIndex.slice(headerLengthBytes, headerLengthBytes + headerBytes).bytes());
+
+    headerLengthBytes = TermToDocumentWeightIndexSearcher.get_header_length_size();
+    lengthBytes = await termToDocumentIndex.slice(0, headerLengthBytes).bytes()
+    headerBytes = TermToDocumentWeightIndexSearcher.get_header_length(lengthBytes);
+    termToDocumentIndexSearcher.load_header(await termToDocumentIndex.slice(headerLengthBytes, headerLengthBytes + headerBytes).bytes());
+
+    let { start, end } = documentToTermIndexSearcher.get_slice_for(document)
+    let terms = documentToTermIndexSearcher.get_index_data_for(await documentToTermIndex.slice(start, end).bytes())
+
+    for (let term of terms) {
+        let { start, end } = termToDocumentIndexSearcher.get_slice_for(term);
+        termToDocumentIndexSearcher.get_weighting_data(term, await termToDocumentIndex.slice(start, end).bytes());
+    }
+
+    return termToDocumentIndexSearcher.recommend_similar(document, 5);
 }
