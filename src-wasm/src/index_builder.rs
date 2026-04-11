@@ -1,7 +1,4 @@
-use std::{
-    collections::{BTreeMap, HashMap, HashSet},
-    io::Write,
-};
+use std::collections::{BTreeMap, HashSet};
 
 use wasm_bindgen::prelude::wasm_bindgen;
 
@@ -46,7 +43,7 @@ impl IndexBuilder {
             .filter(|s| !s.is_empty() && !self.stopwords.contains(s))
             .for_each(|stemmed| {
                 let term = self.terms.entry(stemmed).or_default();
-                *term.documents.entry(document_id.clone()).or_default() += 1;
+                *term.documents.entry(document_id).or_default() += 1;
                 let new_count = term.documents[&document_id];
                 if new_count > term.top_occurrences {
                     term.top_occurrences = new_count;
@@ -56,11 +53,11 @@ impl IndexBuilder {
     }
 
     pub fn create_term_to_document_weight_index_file(&self) -> Vec<u8> {
-        TermToDocumentWeightIndexSearcher::create_index_file(&self)
+        TermToDocumentWeightIndexSearcher::create_index_file(self)
     }
 
     pub fn create_document_to_term_list(&self) -> Vec<u8> {
-        DocumentToTermListIndexSearcher::create_index_file(&self)
+        DocumentToTermListIndexSearcher::create_index_file(self)
     }
 
     pub fn stats(&self) -> usize {
@@ -75,7 +72,7 @@ impl IndexBuilder {
                 s += &format!("Present in document {}, {} times\n", x.0, x.1);
             }
         }
-        return s;
+        s
     }
 }
 

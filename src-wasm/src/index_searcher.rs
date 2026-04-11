@@ -7,10 +7,7 @@ use std::{
 use wasm_bindgen::prelude::wasm_bindgen;
 use web_sys::js_sys::Math::pow;
 
-use crate::{
-    index_builder::{DocumentID, IndexBuilder},
-    log,
-};
+use crate::index_builder::{DocumentID, IndexBuilder};
 
 #[wasm_bindgen]
 pub struct TermToDocumentWeightIndexSearcher {
@@ -36,8 +33,8 @@ impl TermToDocumentWeightIndexSearcher {
 
         let mut map = BTreeMap::<String, usize>::new();
 
-        for (term, _) in &builder.terms {
-            map.insert(term.clone(), usize::max_value());
+        for term in builder.terms.keys() {
+            map.insert(term.clone(), usize::MAX);
         }
 
         let header = postcard::to_stdvec(&map).unwrap();
@@ -53,13 +50,12 @@ impl TermToDocumentWeightIndexSearcher {
                     let tf = *occurrences as f64 / term_data.top_occurrences as f64;
                     let idf =
                         f64::log2(builder.document_count as f64 / term_data.documents.len() as f64);
-                    (document_id.clone(), tf * idf)
+                    (*document_id, tf * idf)
                 })
                 .collect();
 
-            match map.get_mut(term) {
-                Some(pos) => *pos = buf.len(),
-                None => {}
+            if let Some(pos) = map.get_mut(term) {
+                *pos = buf.len()
             };
 
             buf.write_all(&postcard::to_stdvec(&weights).unwrap())
@@ -70,7 +66,7 @@ impl TermToDocumentWeightIndexSearcher {
         buf[0..size_of::<usize>()].copy_from_slice(&header.len().to_ne_bytes());
         buf[size_of::<usize>()..(size_of::<usize>() + header.len())].copy_from_slice(&header);
 
-        return buf;
+        buf
     }
 }
 
@@ -106,8 +102,8 @@ impl TermToDocumentWeightIndexSearcher {
         let el2 = range.next();
 
         FileRange {
-            start: el.and_then(|f| Some(f.1)).copied(),
-            end: el2.and_then(|f| Some(f.1)).copied(),
+            start: el.map(|f| f.1).copied(),
+            end: el2.map(|f| f.1).copied(),
         }
     }
 
@@ -137,7 +133,7 @@ impl TermToDocumentWeightIndexSearcher {
                 if let Ok(r) = w.1.binary_search_by_key(&current_document, |k| k.document) {
                     return Some((w.0, (w.1[r].weight, 0usize)));
                 }
-                return None;
+                None
             })
             .collect();
 
@@ -232,14 +228,14 @@ impl DocumentToTermListIndexSearcher {
         let mut map = BTreeMap::<DocumentID, Vec<String>>::new();
 
         for (term, data) in &builder.terms {
-            for (document_id, _) in &data.documents {
+            for document_id in data.documents.keys() {
                 map.entry(*document_id).or_default().push(term.clone());
             }
         }
 
         let mut jump_map = map
-            .iter()
-            .map(|(key, _)| (*key, usize::max_value()))
+            .keys()
+            .map(|key| (*key, usize::MAX))
             .collect::<BTreeMap<DocumentID, usize>>();
 
         let header = postcard::to_stdvec(&jump_map).unwrap();
@@ -248,9 +244,8 @@ impl DocumentToTermListIndexSearcher {
         buf.write_all(&header).unwrap();
 
         for (document_id, terms) in &map {
-            match jump_map.get_mut(document_id) {
-                Some(pos) => *pos = buf.len(),
-                None => {}
+            if let Some(pos) = jump_map.get_mut(document_id) {
+                *pos = buf.len()
             };
             buf.write_all(&postcard::to_stdvec(&terms).unwrap())
                 .unwrap();
@@ -260,7 +255,7 @@ impl DocumentToTermListIndexSearcher {
         buf[0..size_of::<usize>()].copy_from_slice(&header.len().to_ne_bytes());
         buf[size_of::<usize>()..(size_of::<usize>() + header.len())].copy_from_slice(&header);
 
-        return buf;
+        buf
     }
 }
 
@@ -295,13 +290,13 @@ impl DocumentToTermListIndexSearcher {
         let el2 = range.next();
 
         FileRange {
-            start: el.and_then(|f| Some(f.1)).copied(),
-            end: el2.and_then(|f| Some(f.1)).copied(),
+            start: el.map(|f| f.1).copied(),
+            end: el2.map(|f| f.1).copied(),
         }
     }
 
     pub fn get_index_data_for(&mut self, slice: Vec<u8>) -> Vec<String> {
         let terms: Vec<String> = postcard::from_bytes(&slice).unwrap();
-        return terms;
+        terms
     }
 }
