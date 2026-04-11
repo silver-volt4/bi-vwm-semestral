@@ -16,6 +16,9 @@
     {:else}
         <Read
             fileId={selectedFileId}
+            close={() => {
+                selectedFileId = null;
+            }}
             selectFile={(fileId) => {
                 selectedFileId = fileId;
             }}

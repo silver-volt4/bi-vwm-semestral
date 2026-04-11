@@ -1,11 +1,32 @@
 @import "tailwindcss";
 
-main, body {
+main,
+body {
     overflow: hidden;
+}
+
+@utility contour {
+    @apply border border-black/20;
 }
 
 @layer components {
     .btn {
-        @apply bg-amber-400 text-black px-3 py-2 cursor-pointer shadow-md;
+        @apply contour px-3 py-2 cursor-pointer shadow-md rounded-xl;
+    }
+
+    .btn-icon {
+        @apply p-2 rounded-full cursor-pointer hover:bg-black/10 active:bg-black/20 transition-colors;
+    }
+
+    .btn-primary {
+        @apply contour bg-amber-400 text-black hover:bg-amber-300 active:bg-amber-500 transition-colors;
+    }
+
+    .btn-secondary {
+        @apply contour bg-yellow-200 text-black hover:bg-yellow-300 active:bg-yellow-400 transition-colors;
+    }
+
+    .btn-dark {
+        @apply bg-neutral-700 text-white hover:bg-neutral-600 active:bg-neutral-900 transition-colors;
     }
 }
