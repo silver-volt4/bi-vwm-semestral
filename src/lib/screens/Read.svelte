@@ -5,6 +5,7 @@
     import { recommendSimilar } from "../wasm";
     import { mdiArrowLeft as Back } from "@mdi/js";
     import SvgIcon from "@jamescoyle/svelte-icon";
+    import type { Weighting } from "../wasm/src_wasm";
 
     let {
         fileId,
@@ -25,7 +26,7 @@
         let best = await recommendSimilar(fileId);
         let map = new Map<Schema.DocumentListPK, SimilarDocument>();
         await Promise.all(
-            best.map(async (k) =>
+            best.map(async (k: Weighting) =>
                 map.set(k.document, {
                     document: await getDocumentMeta(k.document),
                     weight: k.weight,

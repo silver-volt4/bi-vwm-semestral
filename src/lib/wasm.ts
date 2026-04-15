@@ -1,3 +1,4 @@
+import { progress } from "./components/notifications.svelte";
 import { clearIndex, getDocument, getDocumentList, type Schema } from "./documents";
 import { readFile } from "./files";
 import { writeFile } from "./files";
@@ -25,14 +26,36 @@ export interface IndexBuildStatus {
     totalCount: number
 }
 
-export async function buildIndex(statusProgress?: (status: IndexBuildStatus) => Promise<void>) {
-    console.info("Started index build.");
+function estimateTimeRemaining(
+    start: Date,
+    processed: number,
+    total: number,
+) {
+    let now = new Date();
+    let diff = +now - +start;
+
+    let remaining = (diff / processed) * (total - processed);
+
+    let seconds = Math.floor(remaining / 1000) + 1;
+    let minutes = Math.floor(seconds / 60);
+    seconds %= 60;
+
+    return `${minutes}m ${seconds}s`;
+}
+
+export async function buildIndex() {
+    let notification = progress("", "", 0);
+    let phaseStarted: Date = new Date();
+
     let indexBuilder = new IndexBuilder();
 
+    notification.update("Enumerating documents...", "", 0);
     let documents = await getDocumentList();
+
+    notification.update("Scanning terms...", "", 0);
+
     let processedCount = 0;
-    let termCount = 0;
-    console.info("Started adding documents.");
+
     for (let [key, documentFromList] of documents) {
         let document = await getDocument(key);
         if (!document) {
@@ -41,26 +64,23 @@ export async function buildIndex(statusProgress?: (status: IndexBuildStatus) => 
 
         ++processedCount;
         indexBuilder.add_document(key, document.content);
-        statusProgress?.({
-            importDocumentsPhase: {
-                lastBuiltDocument: documentFromList,
-                termCount: termCount = indexBuilder.stats(),
-            },
-            processedCount: processedCount,
-            totalCount: documents.size
-        })
+
+        notification.update(
+            "Scanning terms...",
+            `Last processed document: ${documentFromList.title}\n` +
+            `Total processed terms: ${indexBuilder.stats()}\n` +
+            `ETA: ${estimateTimeRemaining(phaseStarted, processedCount, documents.size)}`,
+            processedCount / documents.size
+        );
     }
-    console.info("Finished adding documents.");
 
+    notification.update("Building optimized cache files...", "", 0);
     await clearIndex();
-    console.info("Cleared index table.");
-
-    console.info("Started building cache files.");
     await writeFile("termToDocumentIndex", indexBuilder.create_term_to_document_weight_index_file());
     await writeFile("documentToTermIndex", indexBuilder.create_document_to_term_list());
-    console.info("Finished building cache files.");
 
-    console.info("Finished index build.");
+    notification.update("Completed!", "", 0);
+    notification.done(5000);
 }
 
 export async function recommendSimilar(document: Schema.DocumentListPK) {

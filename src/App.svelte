@@ -1,10 +1,13 @@
 <script lang="ts">
+    import Notifications from "./lib/components/Notifications.svelte";
     import { type Schema } from "./lib/documents";
     import FileListing from "./lib/screens/FileListing.svelte";
     import Read from "./lib/screens/Read.svelte";
 
     let selectedFileId: Schema.DocumentListPK | null = $state(null);
 </script>
+
+<Notifications />
 
 <div class="overflow-y-auto w-screen h-screen">
     {#if selectedFileId === null}

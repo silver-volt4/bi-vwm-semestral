@@ -3,7 +3,8 @@
     import { fileSelectDialog } from "../files";
     import { onMount } from "svelte";
     import { type Schema, getDocumentList } from "../documents";
-    import IndexRebuilder from "../components/IndexRebuilder.svelte";
+    import { progress } from "../components/notifications.svelte";
+    import { buildIndex, type IndexBuildStatus } from "../wasm";
 
     let getListPromise:
         | Promise<Map<Schema.DocumentListPK, Schema.DocumentList>>
@@ -14,8 +15,6 @@
     }: {
         selectFile: (id: Schema.DocumentListPK) => any;
     } = $props();
-
-    let dialogRebuildCache = $state(false);
 
     async function addFiles() {
         let files = await fileSelectDialog();
@@ -30,7 +29,9 @@
     }
 
     function rebuildCache() {
-        dialogRebuildCache = true;
+        let result = confirm("Rebuild cache? It may take a while.");
+        if (!result) return;
+        buildIndex();
     }
 
     function refresh() {
@@ -41,10 +42,6 @@
         refresh();
     });
 </script>
-
-{#if dialogRebuildCache}
-    <IndexRebuilder onclose={() => (dialogRebuildCache = false)} />
-{/if}
 
 <div
     class="flex flex-col items-center py-5 px-4 w-full min-h-full bg-yellow-100"
