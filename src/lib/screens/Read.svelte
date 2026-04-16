@@ -6,6 +6,7 @@
     import { mdiArrowLeft as Back } from "@mdi/js";
     import SvgIcon from "@jamescoyle/svelte-icon";
     import type { Weighting } from "../wasm/src_wasm";
+    import { measureTime } from "../utils";
 
     let {
         fileId,
@@ -22,18 +23,26 @@
         weight: number;
     };
 
+    let timeTook: number = $state(0)
+
     async function getBestSimilarDocuments() {
-        let best = await recommendSimilar(fileId);
-        let map = new Map<Schema.DocumentListPK, SimilarDocument>();
-        await Promise.all(
-            best.map(async (k: Weighting) =>
-                map.set(k.document, {
-                    document: await getDocumentMeta(k.document),
-                    weight: k.weight,
-                }),
-            ),
-        );
-        return map;
+        let timed = measureTime(async () => {
+            let best = await recommendSimilar(fileId);
+            let map = new Map<Schema.DocumentListPK, SimilarDocument>();
+            await Promise.all(
+                best.map(async (k: Weighting) =>
+                    map.set(k.document, {
+                        document: await getDocumentMeta(k.document),
+                        weight: k.weight,
+                    }),
+                ),
+            );
+            return map;
+        });
+
+        let result = await timed();
+        timeTook = timed.time()!;
+        return result;
     }
 
     let document = $derived(
@@ -68,7 +77,7 @@
                 >
                     <div class="font-bold text-2xl">Recommended articles</div>
                     <div class="flex flex-wrap gap-2">
-                        {#each recommendations as [id, rec]}
+                        {#each recommendations.entries() as [id, rec]}
                             <button
                                 class="btn btn-dark p-0 min-w-20"
                                 onclick={() => selectFile(id)}
@@ -85,6 +94,7 @@
                             </button>
                         {/each}
                     </div>
+                    <div>Search took {timeTook}s</div>
                 </div>
             {/await}
         </div>
