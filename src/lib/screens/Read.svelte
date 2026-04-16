@@ -7,6 +7,7 @@
     import SvgIcon from "@jamescoyle/svelte-icon";
     import type { Weighting } from "../wasm/src_wasm";
     import { measureTime } from "../utils";
+    import { untrack } from "svelte";
 
     let {
         fileId,
@@ -23,9 +24,13 @@
         weight: number;
     };
 
-    let timeTook: number = $state(0)
+    let timeTook: number = $state(0);
+    let slowTimeTook: number | null = $state(null);
 
     async function getBestSimilarDocuments() {
+        untrack(() => {
+            slowTimeTook = null;
+        });
         let timed = measureTime(async () => {
             let best = await recommendSimilar(fileId);
             let map = new Map<Schema.DocumentListPK, SimilarDocument>();
@@ -94,7 +99,27 @@
                             </button>
                         {/each}
                     </div>
-                    <div>Search took {timeTook}s</div>
+                    <div>
+                        Search took {timeTook}s
+                        {#if slowTimeTook === null}
+                            <button
+                                class="btn btn-dark"
+                                onclick={async () => {
+                                    let timed = measureTime(async () => {
+                                        console.log("slow similar")
+                                        await recommendSimilar(fileId, true);
+                                        console.log("slow similar end")
+                                    });
+                                    await timed();
+                                    slowTimeTook = timed.time()!;
+                                }}
+                            >
+                                Benchmark slow traversal...
+                            </button>
+                        {:else}
+                            Slow search took {slowTimeTook}s
+                        {/if}
+                    </div>
                 </div>
             {/await}
         </div>

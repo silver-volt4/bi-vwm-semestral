@@ -96,6 +96,10 @@ impl TermToDocumentWeightIndexSearcher {
         self.map = postcard::from_bytes(&slice).unwrap();
     }
 
+    pub fn get_all_terms(&mut self) -> Vec<String> {
+        self.map.iter().map(|m| m.0.clone()).collect()
+    }
+
     pub fn get_slice_for(&mut self, term: String) -> FileRange {
         let mut range = self.map.range(term..);
         let el = range.next();

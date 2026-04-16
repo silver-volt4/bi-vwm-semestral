@@ -83,25 +83,31 @@ export async function buildIndex() {
     notification.done(5000);
 }
 
-export async function recommendSimilar(document: Schema.DocumentListPK) {
+export async function recommendSimilar(document: Schema.DocumentListPK, slowMode: boolean = false) {
     let documentToTermIndex = await readFile("documentToTermIndex");
     let termToDocumentIndex = await readFile("termToDocumentIndex");
 
-    let documentToTermIndexSearcher = new DocumentToTermListIndexSearcher();
+    let terms: string[] = [];
+
+
     let termToDocumentIndexSearcher = new TermToDocumentWeightIndexSearcher();
-
-    let headerLengthBytes = DocumentToTermListIndexSearcher.get_header_length_size();
-    let lengthBytes = await documentToTermIndex.slice(0, headerLengthBytes).bytes()
-    let headerBytes = DocumentToTermListIndexSearcher.get_header_length(lengthBytes);
-    documentToTermIndexSearcher.load_header(await documentToTermIndex.slice(headerLengthBytes, headerLengthBytes + headerBytes).bytes());
-
-    headerLengthBytes = TermToDocumentWeightIndexSearcher.get_header_length_size();
-    lengthBytes = await termToDocumentIndex.slice(0, headerLengthBytes).bytes()
-    headerBytes = TermToDocumentWeightIndexSearcher.get_header_length(lengthBytes);
+    let headerLengthBytes = TermToDocumentWeightIndexSearcher.get_header_length_size();
+    let lengthBytes = await termToDocumentIndex.slice(0, headerLengthBytes).bytes()
+    let headerBytes = TermToDocumentWeightIndexSearcher.get_header_length(lengthBytes);
     termToDocumentIndexSearcher.load_header(await termToDocumentIndex.slice(headerLengthBytes, headerLengthBytes + headerBytes).bytes());
 
-    let { start, end } = documentToTermIndexSearcher.get_slice_for(document)
-    let terms = documentToTermIndexSearcher.get_index_data_for(await documentToTermIndex.slice(start, end).bytes())
+    if (!slowMode) {
+        let documentToTermIndexSearcher = new DocumentToTermListIndexSearcher();
+        let headerLengthBytes = DocumentToTermListIndexSearcher.get_header_length_size();
+        let lengthBytes = await documentToTermIndex.slice(0, headerLengthBytes).bytes()
+        let headerBytes = DocumentToTermListIndexSearcher.get_header_length(lengthBytes);
+        documentToTermIndexSearcher.load_header(await documentToTermIndex.slice(headerLengthBytes, headerLengthBytes + headerBytes).bytes());
+
+        let { start, end } = documentToTermIndexSearcher.get_slice_for(document)
+        terms = documentToTermIndexSearcher.get_index_data_for(await documentToTermIndex.slice(start, end).bytes())
+    } else {
+        terms = termToDocumentIndexSearcher.get_all_terms();
+    }
 
     for (let term of terms) {
         let { start, end } = termToDocumentIndexSearcher.get_slice_for(term);
