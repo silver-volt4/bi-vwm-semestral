@@ -1,5 +1,3 @@
-import { TermToDocumentWeightIndexSearcher, DocumentToTermListIndexSearcher } from "./wasm/src_wasm";
-
 export function fileSelectDialog(): Promise<File[]> {
     let fileInput = document.createElement("input")
     fileInput.type = "file";

@@ -3,8 +3,7 @@
     import { fileSelectDialog } from "../files";
     import { onMount } from "svelte";
     import { type Schema, getDocumentList } from "../documents";
-    import { progress } from "../components/notifications.svelte";
-    import { buildIndex, type IndexBuildStatus } from "../wasm";
+    import { buildIndex } from "../wasm";
 
     let getListPromise:
         | Promise<Map<Schema.DocumentListPK, Schema.DocumentList>>

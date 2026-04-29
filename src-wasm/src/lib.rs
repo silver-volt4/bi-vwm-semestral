@@ -10,5 +10,6 @@ extern "C" {
 
 #[wasm_bindgen]
 pub fn initialize() {
+    // if a panic occurrs in Rust, propagate it to JavaScript using a console.error()
     std::panic::set_hook(Box::new(console_error_panic_hook::hook));
 }

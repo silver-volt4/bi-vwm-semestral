@@ -80,7 +80,7 @@ export async function buildIndex() {
     await writeFile("documentToTermIndex", indexBuilder.create_document_to_term_list());
 
     let ended = new Date();
-    notification.update("Completed!", `Took ${(+ended - +started)/1000} seconds.\nFound ${indexBuilder.stats()} terms.`, 0);
+    notification.update("Completed!", `Took ${(+ended - +started) / 1000} seconds.\nFound ${indexBuilder.stats()} terms.`, 0);
     notification.done(5000);
 }
 

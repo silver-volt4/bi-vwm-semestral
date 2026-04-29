@@ -7,7 +7,12 @@ export function measureTime<T>(func: () => Awaited<T>): {
     time: () => number | null
 };
 
-export function measureTime(func: any) {
+/**
+ * Utility function that wraps a function with time measurement capabilities.
+ * The passed function may return a promise (therefore, it may be async).
+ * The returned function has the `time` property which returns, in seconds, for how long the function ran. 
+ */
+export function measureTime(func: CallableFunction) {
     let timeTook: number | null = null;
     let exec: {
         (): any;
