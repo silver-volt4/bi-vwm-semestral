@@ -63,17 +63,6 @@ impl IndexBuilder {
     pub fn stats(&self) -> usize {
         self.terms.len()
     }
-
-    pub fn get_something(&self) -> String {
-        let mut s = String::new();
-        for i in self.terms.iter().take(1) {
-            s += &format!("Term {} \n", i.0);
-            for x in &i.1.documents {
-                s += &format!("Present in document {}, {} times\n", x.0, x.1);
-            }
-        }
-        s
-    }
 }
 
 impl Default for IndexBuilder {

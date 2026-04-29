@@ -62,12 +62,13 @@
             </div>
         </div>
 
-        <div
-            class="grid gap-2"
-            style="grid-template-columns: repeat(auto-fit, minmax(250px, 1fr))"
-        >
-            {#if getListPromise}
-                {#await getListPromise then data}
+        {#if getListPromise}
+            {#await getListPromise then data}
+                <div class="text-center mb-4"># of documents: {data.size}</div>
+                <div
+                    class="grid gap-2"
+                    style="grid-template-columns: repeat(auto-fit, minmax(250px, 1fr))"
+                >
                     {#each data as row}
                         <button
                             onclick={() => selectFile(row[0])}
@@ -76,8 +77,8 @@
                             {row[1].title}
                         </button>
                     {/each}
-                {/await}
-            {/if}
-        </div>
+                </div>
+            {/await}
+        {/if}
     </div>
 </div>

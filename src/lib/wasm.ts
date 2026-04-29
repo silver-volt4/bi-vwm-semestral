@@ -45,7 +45,7 @@ function estimateTimeRemaining(
 
 export async function buildIndex() {
     let notification = progress("", "", 0);
-    let phaseStarted: Date = new Date();
+    let started: Date = new Date();
 
     let indexBuilder = new IndexBuilder();
 
@@ -69,7 +69,7 @@ export async function buildIndex() {
             "Scanning terms...",
             `Last processed document: ${documentFromList.title}\n` +
             `Total processed terms: ${indexBuilder.stats()}\n` +
-            `ETA: ${estimateTimeRemaining(phaseStarted, processedCount, documents.size)}`,
+            `ETA: ${estimateTimeRemaining(started, processedCount, documents.size)}`,
             processedCount / documents.size
         );
     }
@@ -79,7 +79,8 @@ export async function buildIndex() {
     await writeFile("termToDocumentIndex", indexBuilder.create_term_to_document_weight_index_file());
     await writeFile("documentToTermIndex", indexBuilder.create_document_to_term_list());
 
-    notification.update("Completed!", "", 0);
+    let ended = new Date();
+    notification.update("Completed!", `Took ${(+ended - +started)/1000} seconds.\nFound ${indexBuilder.stats()} terms.`, 0);
     notification.done(5000);
 }
 
